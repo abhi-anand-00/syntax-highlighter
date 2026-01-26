@@ -1,0 +1,227 @@
+/**
+ * Fluent UI Icons - Centralized Export
+ * 
+ * Import all icons from this file for consistency.
+ * Replaces lucide-react icons throughout the app.
+ * 
+ * Usage:
+ * import { AddIcon, DeleteIcon, EditIcon } from '@/components/fluent/icons';
+ */
+
+// Common Actions (aliased for easier migration from lucide)
+export {
+  Add24Regular as AddIcon,
+  Add24Regular as PlusIcon,
+  Delete24Regular as DeleteIcon,
+  Delete24Regular as Trash2Icon,
+  Edit24Regular as EditIcon,
+  Edit24Regular as PencilIcon,
+  Save24Regular as SaveIcon,
+  Dismiss24Regular as CloseIcon,
+  Dismiss24Regular as XIcon,
+  Search24Regular as SearchIcon,
+  Settings24Regular as SettingsIcon,
+  MoreHorizontal24Regular as MoreIcon,
+  Checkmark24Regular as CheckIcon,
+  Copy24Regular as CopyIcon,
+  ArrowDownload24Regular as DownloadIcon,
+  ArrowUpload24Regular as UploadIcon,
+  ChevronDown24Regular as ChevronDownIcon,
+  ChevronUp24Regular as ChevronUpIcon,
+  ChevronLeft24Regular as ChevronLeftIcon,
+  ChevronRight24Regular as ChevronRightIcon,
+  ArrowSync24Regular as RotateCcwIcon,
+  ArrowSync24Regular as RefreshIcon,
+  Play24Regular as PlayIcon,
+  
+  // Navigation
+  Navigation24Regular as MenuIcon,
+  Home24Regular as HomeIcon,
+  
+  // Files & Documents
+  Document24Regular as FileIcon,
+  DocumentText24Regular as FileTextIcon,
+  Folder24Regular as FolderIcon,
+  FolderOpen24Regular as FolderOpenIcon,
+  ArrowUpload24Regular as FileUpIcon,
+  
+  // Questionnaire specific
+  QuestionCircle24Regular as HelpCircleIcon,
+  QuestionCircle24Regular as HelpIcon,
+  BranchFork24Regular as GitBranchIcon,
+  BranchFork24Regular as BranchIcon,
+  Layer24Regular as LayersIcon,
+  Flash24Regular as ZapIcon,
+  Flash24Regular as ActionIcon,
+  BookOpen24Regular as BookOpenIcon,
+  ListBar24Regular as ListChecksIcon,
+  Form24Regular as FormIcon,
+  
+  // Data & Database
+  Database24Regular as DatabaseIcon,
+  Table24Regular as Table2Icon,
+  Table24Regular as TableIcon,
+  Filter24Regular as FilterIcon,
+  ArrowSort24Regular as ArrowUpDownIcon,
+  ArrowSort24Regular as SortIcon,
+  Library24Regular as LibraryIcon,
+  
+  // Status & Feedback
+  Warning24Regular as WarningIcon,
+  Warning24Regular as AlertCircleIcon,
+  ErrorCircle24Regular as ErrorIcon,
+  CheckmarkCircle24Regular as SuccessIcon,
+  Info24Regular as InfoIcon,
+  Clock24Regular as ClockIcon,
+  
+  // Misc
+  Code24Regular as CodeIcon,
+  Eye24Regular as EyeIcon,
+  EyeOff24Regular as EyeOffIcon,
+  Link24Regular as LinkIcon,
+  Mail24Regular as MailIcon,
+  Calendar24Regular as CalendarIcon,
+  Person24Regular as PersonIcon,
+  People24Regular as PeopleIcon,
+  Star24Regular as StarIcon,
+  Heart24Regular as HeartIcon,
+  ThumbLike24Regular as ThumbsUpIcon,
+  DocumentMultiple24Regular as FilesIcon,
+  
+} from "@fluentui/react-icons";
+
+// Re-export raw icons for direct usage (sized variants)
+export {
+  // 16px
+  Add16Regular,
+  Delete16Regular,
+  Edit16Regular,
+  Dismiss16Regular,
+  ChevronDown16Regular,
+  ChevronUp16Regular,
+  Code16Regular,
+  
+  // 20px
+  Add20Regular,
+  Delete20Regular,
+  Edit20Regular,
+  Dismiss20Regular,
+  
+  // 24px (primary size)
+  Add24Regular,
+  Add24Filled,
+  Delete24Regular,
+  Delete24Filled,
+  Edit24Regular,
+  Edit24Filled,
+  Dismiss24Regular,
+  Dismiss24Filled,
+  Save24Regular,
+  Save24Filled,
+  Search24Regular,
+  Search24Filled,
+  Settings24Regular,
+  Settings24Filled,
+  Play24Regular,
+  Play24Filled,
+  QuestionCircle24Regular,
+  QuestionCircle24Filled,
+  BranchFork24Regular,
+  BranchFork24Filled,
+  Layer24Regular,
+  Layer24Filled,
+  Flash24Regular,
+  Flash24Filled,
+  Database24Regular,
+  Database24Filled,
+  Table24Regular,
+  Table24Filled,
+  Filter24Regular,
+  Filter24Filled,
+  ArrowSort24Regular,
+  Library24Regular,
+  Library24Filled,
+  Warning24Regular,
+  Warning24Filled,
+  Info24Regular,
+  Info24Filled,
+  Clock24Regular,
+  Clock24Filled,
+  Document24Regular,
+  Document24Filled,
+  DocumentText24Regular,
+  DocumentText24Filled,
+  Folder24Regular,
+  Folder24Filled,
+  FolderOpen24Regular,
+  ChevronDown24Regular,
+  ChevronUp24Regular,
+  ChevronLeft24Regular,
+  ChevronRight24Regular,
+  ArrowDownload24Regular,
+  ArrowUpload24Regular,
+  ArrowSync24Regular,
+  Copy24Regular,
+  Checkmark24Regular,
+  Checkmark24Filled,
+  CheckmarkCircle24Regular,
+  CheckmarkCircle24Filled,
+  ErrorCircle24Regular,
+  ErrorCircle24Filled,
+  MoreHorizontal24Regular,
+  MoreVertical24Regular,
+  Eye24Regular,
+  EyeOff24Regular,
+  Link24Regular,
+  Calendar24Regular,
+  Person24Regular,
+  People24Regular,
+  Star24Regular,
+  Star24Filled,
+  Heart24Regular,
+  Heart24Filled,
+  Code24Regular,
+  Code24Filled,
+  Navigation24Regular,
+  Home24Regular,
+  Home24Filled,
+  Form24Regular,
+  Form24Filled,
+  ListBar24Regular,
+  BookOpen24Regular,
+  BookOpen24Filled,
+  ArrowUploadRegular as DocumentArrowUpRegular,
+  DocumentMultiple24Regular,
+  ThumbLike24Regular,
+  ThumbDislike24Regular,
+  Mail24Regular,
+  
+  // 28px
+  Add28Regular,
+  Delete28Regular,
+  
+  // 32px
+  Add32Regular,
+  Settings32Regular,
+  
+  // Questionnaire specific
+  TextboxRegular,
+  TextboxFilled,
+  CheckboxCheckedRegular,
+  CheckboxCheckedFilled,
+  RadioButtonRegular,
+  RadioButtonFilled,
+  NumberSymbolRegular,
+  ToggleLeftRegular,
+  AttachRegular,
+  AttachFilled,
+  TextAlignLeftRegular,
+  
+  // Cloud/Dataverse
+  CloudRegular,
+  CloudFilled,
+  CloudSyncRegular,
+  PlugConnectedRegular,
+  PlugDisconnectedRegular,
+  
+} from '@fluentui/react-icons';
