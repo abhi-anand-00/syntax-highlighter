@@ -1,3 +1,6 @@
 {
-    "outDir": "./out/controls"
+  "outDir": "./out/controls",
+  "buildOptions": {
+    "generateSourceMap": false
+  }
 }

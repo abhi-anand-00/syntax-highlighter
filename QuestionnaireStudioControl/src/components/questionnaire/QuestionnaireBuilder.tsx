@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigation } from '../../lib/navigation';
 import {
   Add24Regular,
@@ -61,15 +61,19 @@ const useStyles = makeStyles({
   resizeHandle: {
     position: "relative",
     display: "flex",
-    width: "4px",
+    width: "8px",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: tokens.colorNeutralStroke1,
     cursor: "col-resize",
     transition: "background-color 0.2s",
+    userSelect: "none",
     "&:hover": {
       backgroundColor: tokens.colorBrandStroke1,
     },
+  },
+  resizeHandleActive: {
+    backgroundColor: tokens.colorBrandStroke1,
   },
   handleIcon: {
     zIndex: 10,
@@ -244,6 +248,55 @@ const QuestionnaireBuilder = () => {
   const [publishValidationErrors, setPublishValidationErrors] = useState<ValidationErrors | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
   const [dataverseRecordId, setDataverseRecordId] = useState<string | null>(null);
+  
+  // Resizable sidebar state - default 30% of viewport
+  const [sidebarWidth, setSidebarWidth] = useState(() => Math.round(window.innerWidth * 0.3));
+  const [isResizing, setIsResizing] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  const MIN_SIDEBAR_PERCENT = 0.15; // 15% minimum
+  const MAX_SIDEBAR_PERCENT = 0.50; // 50% maximum
+  
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+  
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isResizing || !containerRef.current) return;
+    
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const newWidth = e.clientX - containerRect.left;
+    
+    const minWidth = containerWidth * MIN_SIDEBAR_PERCENT;
+    const maxWidth = containerWidth * MAX_SIDEBAR_PERCENT;
+    
+    setSidebarWidth(Math.min(maxWidth, Math.max(minWidth, newWidth)));
+  }, [isResizing]);
+  
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+  
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   // Load drafts from localStorage on mount
   useEffect(() => {
@@ -1242,9 +1295,9 @@ const QuestionnaireBuilder = () => {
   };
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} ref={containerRef}>
       {/* Sidebar */}
-      <div style={{ width: '280px', minWidth: '200px', maxWidth: '400px', flexShrink: 0 }}>
+      <div style={{ width: `${sidebarWidth}px`, flexShrink: 0 }}>
         <Sidebar
           questionnaire={questionnaire}
           activePageId={activePageId}
@@ -1272,7 +1325,10 @@ const QuestionnaireBuilder = () => {
       </div>
 
       {/* Resize Handle */}
-      <div className={styles.resizeHandle}>
+      <div 
+        className={`${styles.resizeHandle} ${isResizing ? styles.resizeHandleActive : ''}`}
+        onMouseDown={handleMouseDown}
+      >
         <div className={styles.handleIcon}>
           <ReOrder24Regular style={{ width: 10, height: 10 }} />
         </div>
