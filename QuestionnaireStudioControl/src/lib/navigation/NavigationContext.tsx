@@ -1,7 +1,7 @@
 /**
  * PCF-Compatible Navigation Context
  * 
- * Provides state-based navigation for PCF controls.
+ * Provides state-based navigation for PCF controls with loading states.
  */
 
 import * as React from 'react';
@@ -11,6 +11,7 @@ import { ViewState, NavigationState } from './types';
 interface NavigationContextValue {
   currentView: ViewState;
   previousView: ViewState | null;
+  isNavigating: boolean;
   navigate: (view: ViewState) => void;
   goBack: () => void;
 }
@@ -38,25 +39,36 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     currentView: initialView,
     previousView: null,
   });
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const navigate = useCallback((view: ViewState) => {
-    setState(prev => ({
-      currentView: view,
-      previousView: prev.currentView,
-    }));
+    setIsNavigating(true);
+    // Brief delay to show loading state and allow for smooth transitions
+    setTimeout(() => {
+      setState(prev => ({
+        currentView: view,
+        previousView: prev.currentView,
+      }));
+      setIsNavigating(false);
+    }, 150);
   }, []);
 
   const goBack = useCallback(() => {
-    setState(prev => ({
-      currentView: prev.previousView ?? 'home',
-      previousView: null,
-    }));
+    setIsNavigating(true);
+    setTimeout(() => {
+      setState(prev => ({
+        currentView: prev.previousView ?? 'home',
+        previousView: null,
+      }));
+      setIsNavigating(false);
+    }, 150);
   }, []);
 
   return (
     <NavigationContext.Provider value={{
       currentView: state.currentView,
       previousView: state.previousView,
+      isNavigating,
       navigate,
       goBack,
     }}>

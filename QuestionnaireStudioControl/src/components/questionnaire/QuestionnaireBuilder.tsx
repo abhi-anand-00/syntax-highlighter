@@ -247,6 +247,7 @@ const QuestionnaireBuilder = () => {
   const [publishedRecords, setPublishedRecords] = useState<Record<string, PublishedRecord>>(loadPublishedRecords());
   const [publishValidationErrors, setPublishValidationErrors] = useState<ValidationErrors | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [dataverseRecordId, setDataverseRecordId] = useState<string | null>(null);
   
   // Resizable sidebar state - default 30% of viewport
@@ -298,9 +299,28 @@ const QuestionnaireBuilder = () => {
     };
   }, [isResizing, handleMouseMove, handleMouseUp]);
 
-  // Load drafts from localStorage on mount
+  // Load drafts from localStorage on mount and check for preview return state
   useEffect(() => {
     setSavedDrafts(loadDraftsFromStorage());
+    
+    // Check if returning from preview - restore questionnaire state
+    const previewReturnState = sessionStorage.getItem('builder-preview-return');
+    if (previewReturnState) {
+      try {
+        const state = JSON.parse(previewReturnState);
+        if (state.questionnaire) {
+          setQuestionnaire(state.questionnaire);
+          setActivePageId(state.activePageId || state.questionnaire.pages[0]?.id || null);
+          setEditingDraftId(state.editingDraftId || null);
+          setEditingRecordId(state.editingRecordId || null);
+          toast.info("Returned to questionnaire builder");
+        }
+        sessionStorage.removeItem('builder-preview-return');
+      } catch (e) {
+        console.error('Failed to restore preview state', e);
+        sessionStorage.removeItem('builder-preview-return');
+      }
+    }
   }, []);
 
   // Save drafts to localStorage whenever they change
@@ -1042,8 +1062,13 @@ const QuestionnaireBuilder = () => {
     };
   };
 
-  const handleSaveAsDraft = () => {
-    if (!questionnaire) return;
+  const handleSaveAsDraft = async () => {
+    if (!questionnaire || isSaving) return;
+    
+    setIsSaving(true);
+    
+    // Simulate async operation for smooth UX
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     const stats = getQuestionnaireStats(questionnaire);
     
@@ -1095,6 +1120,8 @@ const QuestionnaireBuilder = () => {
       setEditingDraftId(newDraftId);
       toast.success("Questionnaire saved as draft!");
     }
+    
+    setIsSaving(false);
     
     // Return to list view
     setQuestionnaire(null);
@@ -1320,6 +1347,7 @@ const QuestionnaireBuilder = () => {
           }}
           onUpdateQuestionnaire={setQuestionnaire}
           onPublish={handlePublish}
+          isPublishing={isPublishing}
           canPublish={!!editingRecordId}
         />
       </div>
@@ -1436,17 +1464,32 @@ const QuestionnaireBuilder = () => {
                       appearance="secondary"
                       onClick={() => {
                         if (questionnaire) {
+                          // Save current builder state for return from preview
+                          const builderState = {
+                            questionnaire,
+                            activePageId,
+                            editingDraftId,
+                            editingRecordId,
+                          };
+                          sessionStorage.setItem('builder-preview-return', JSON.stringify(builderState));
+                          
+                          // Send questionnaire to executor
                           const exportData = buildExportData(questionnaire);
                           sessionStorage.setItem('executor-questionnaire', JSON.stringify(exportData));
-                          window.open('/execute', '_blank');
+                          navigate('execute');
                         }
                       }}
                       icon={<Play24Regular />}
                     >
                       Preview
                     </Button>
-                    <Button appearance="secondary" onClick={handleSaveAsDraft} icon={<Save24Regular />}>
-                      Save as Draft
+                    <Button 
+                      appearance="secondary" 
+                      onClick={() => void handleSaveAsDraft()} 
+                      icon={isSaving ? undefined : <Save24Regular />}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? "Saving..." : "Save as Draft"}
                     </Button>
                     <Button appearance="primary" onClick={handleAddSection} icon={<Add24Regular />}>
                       Add Section

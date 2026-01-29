@@ -7,6 +7,7 @@ import {
   Field,
   Dropdown,
   Option,
+  Spinner,
   makeStyles,
   tokens,
   Text,
@@ -153,6 +154,7 @@ interface SidebarProps {
   onReset: () => void;
   onUpdateQuestionnaire: (updated: Questionnaire) => void;
   onPublish?: () => void;
+  isPublishing?: boolean;
   canPublish?: boolean;
 }
 
@@ -170,6 +172,7 @@ const Sidebar = ({
   onReset,
   onUpdateQuestionnaire,
   onPublish,
+  isPublishing = false,
   canPublish = false,
 }: SidebarProps) => {
   const styles = useStyles();
@@ -582,10 +585,11 @@ const Sidebar = ({
                         appearance="primary"
                         size="small"
                         onClick={onPublish}
-                        disabled={!questionnaire?.name}
+                        disabled={!questionnaire?.name || isPublishing}
                         style={{ width: '100%' }}
+                        icon={isPublishing ? <Spinner size="tiny" /> : undefined}
                       >
-                        Publish
+                        {isPublishing ? "Publishing..." : "Publish"}
                       </Button>
                     </div>
                   </AccordionPanel>

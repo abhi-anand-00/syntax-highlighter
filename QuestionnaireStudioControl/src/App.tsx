@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { 
   FluentThemeProvider, 
   Toaster,
+  LoadingWrapper,
 } from "./components/fluent";
 import { DataverseProvider } from "./lib/dataverse/pcf";
 import { NavigationProvider, useNavigation, ViewState } from "./lib/navigation";
@@ -31,22 +32,30 @@ const queryClient = new QueryClient({
 });
 
 const ViewRouter = () => {
-  const { currentView } = useNavigation();
+  const { currentView, isNavigating } = useNavigation();
   
-  switch (currentView) {
-    case 'home':
-      return <Index />;
-    case 'docs':
-      return <Documentation />;
-    case 'docs-pcf':
-      return <PCFDocumentation />;
-    case 'docs-playground':
-      return <DataversePlayground />;
-    case 'execute':
-      return <Execute />;
-    default:
-      return <Index />;
-  }
+  const renderView = () => {
+    switch (currentView) {
+      case 'home':
+        return <Index />;
+      case 'docs':
+        return <Documentation />;
+      case 'docs-pcf':
+        return <PCFDocumentation />;
+      case 'docs-playground':
+        return <DataversePlayground />;
+      case 'execute':
+        return <Execute />;
+      default:
+        return <Index />;
+    }
+  };
+
+  return (
+    <LoadingWrapper isLoading={isNavigating} variant="fullPage" label="Loading...">
+      {renderView()}
+    </LoadingWrapper>
+  );
 };
 
 const AppContent = () => (
