@@ -20,8 +20,10 @@ export interface QuestionnaireLookupResult {
  * Status choice values for Dataverse ctna_questionnaire entity
  */
 export enum DataverseQuestionnaireStatus {
-  Draft = 100000000,
-  Published = 100000001,
+  Draft = 0,
+  Published = 1,
+  Archived = 2,
+  Active = 3
 }
 
 /**

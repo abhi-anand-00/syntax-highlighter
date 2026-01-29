@@ -1,19 +1,22 @@
 /**
  * Metadata Discovery Service for PCF Controls
- * 
+ *
  * Provides real-time entity and attribute metadata discovery from Dataverse.
  * This service fetches all metadata dynamically - NO hardcoded configurations.
- * 
+ *
  * When deployed to Dataverse, this uses the actual Xrm.WebApi and Xrm.Utility APIs.
  */
 
-import { BaseDataverseService, type BaseServiceConfig } from './BaseDataverseService';
+import {
+  BaseDataverseService,
+  type BaseServiceConfig,
+} from "./BaseDataverseService";
 import type {
   IPCFContext,
   DataverseResult,
   EntityMetadata,
   AttributeMetadata,
-} from './types';
+} from "./types";
 
 // ============================================================================
 // Extended Metadata Types
@@ -77,97 +80,219 @@ export class MetadataService extends BaseDataverseService {
    * Discover all available entities from Dataverse
    * Queries EntityDefinitions to get the list of tables
    */
-  async discoverEntities(forceRefresh = false): Promise<DataverseResult<EntityInfo[]>> {
+  async discoverEntities(
+    forceRefresh = false,
+  ): Promise<DataverseResult<EntityInfo[]>> {
     // Check cache
-    if (!forceRefresh && this._entitiesCache && Date.now() - this._entitiesCacheTime < this._cacheValidityMs) {
-      this._logger.debug('Using cached entities list');
+    if (
+      !forceRefresh &&
+      this._entitiesCache &&
+      Date.now() - this._entitiesCacheTime < this._cacheValidityMs
+    ) {
+      this._logger.debug("Using cached entities list");
       return this.success(this._entitiesCache);
     }
 
     return this.execute<EntityInfo[]>(
-      'retrieveMultiple',
-      'EntityDefinition',
+      "retrieveMultiple",
+      "EntityDefinitions",
       async () => {
-        // Query EntityDefinitions via WebAPI
-        const response = await this.webApi.retrieveMultipleRecords(
-          'EntityDefinition',
-          '?$select=LogicalName,DisplayName,DisplayCollectionName,EntitySetName,' +
-          'PrimaryIdAttribute,PrimaryNameAttribute,IsCustomizable,IsValidForAdvancedFind' +
-          '&$filter=IsValidForAdvancedFind eq true'
-        );
+        const clientUrl = Xrm.Utility.getGlobalContext().getClientUrl();
 
-        const entities: EntityInfo[] = response.entities.map((e: Record<string, unknown>) => ({
-          logicalName: String(e.LogicalName || ''),
-          displayName: this.extractLocalizedLabel(e.DisplayName),
-          displayCollectionName: this.extractLocalizedLabel(e.DisplayCollectionName),
-          entitySetName: String(e.EntitySetName || ''),
-          primaryIdAttribute: String(e.PrimaryIdAttribute || ''),
-          primaryNameAttribute: String(e.PrimaryNameAttribute || ''),
-          isCustomizable: Boolean(e.IsCustomizable),
-          isValidForAdvancedFind: Boolean(e.IsValidForAdvancedFind),
-        }));
+        const query =
+          "/api/data/v9.2/EntityDefinitions?" +
+          "$select=LogicalName,DisplayName,DisplayCollectionName,EntitySetName," +
+          "PrimaryIdAttribute,PrimaryNameAttribute,IsCustomizable,IsValidForAdvancedFind" +
+          "&$filter=IsValidForAdvancedFind eq true";
 
-        // Sort by display name
-        entities.sort((a, b) => a.displayName.localeCompare(b.displayName));
+        const entities = await new Promise<EntityInfo[]>((resolve, reject) => {
+          const req = new XMLHttpRequest();
+          req.open("GET", clientUrl + query, true);
+          req.setRequestHeader("OData-MaxVersion", "4.0");
+          req.setRequestHeader("OData-Version", "4.0");
+          req.setRequestHeader("Accept", "application/json");
+          req.setRequestHeader(
+            "Content-Type",
+            "application/json; charset=utf-8",
+          );
 
-        // Cache the result
-        this._entitiesCache = entities;
-        this._entitiesCacheTime = Date.now();
+          req.onreadystatechange = () => {
+            if (req.readyState !== 4) return;
+
+            req.onreadystatechange = null;
+
+            if (req.status === 200) {
+              const response = JSON.parse(req.responseText);
+              const records = response.value || [];
+
+              const mapped: EntityInfo[] = records.map((e: any) => ({
+                logicalName: String(e.LogicalName || ""),
+                displayName: this.extractLocalizedLabel(e.DisplayName),
+                displayCollectionName: this.extractLocalizedLabel(
+                  e.DisplayCollectionName,
+                ),
+                entitySetName: String(e.EntitySetName || ""),
+                primaryIdAttribute: String(e.PrimaryIdAttribute || ""),
+                primaryNameAttribute: String(e.PrimaryNameAttribute || ""),
+                isCustomizable: Boolean(
+                  e.IsCustomizable?.Value ?? e.IsCustomizable,
+                ),
+                isValidForAdvancedFind: Boolean(e.IsValidForAdvancedFind),
+              }));
+
+              // Sort by display name
+              mapped.sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+              // Cache results
+              this._entitiesCache = mapped;
+              this._entitiesCacheTime = Date.now();
+
+              resolve(mapped);
+            } else {
+              reject(new Error(req.statusText));
+            }
+          };
+
+          req.send();
+        });
 
         return entities;
-      }
+      },
     );
   }
 
   /**
-   * Get entity metadata with attributes
+   * Get entity metadata with attributes (fields) using Metadata Web API + $expand=Attributes
    */
-  async getEntityWithFields(entityName: string): Promise<DataverseResult<EntityWithFields>> {
+  async getEntityWithFields(
+    entityName: string,
+  ): Promise<DataverseResult<EntityWithFields>> {
     return this.execute<EntityWithFields>(
-      'metadata',
-      entityName,
+      "retrieve",
+      "EntityDefinitions",
       async () => {
-        // Get entity metadata
-        const metadata = await this.utility.getEntityMetadata(entityName);
+        const clientUrl = Xrm.Utility.getGlobalContext().getClientUrl();
 
+        // IMPORTANT: entityName must be logical name (e.g. "account", "contact", "new_policy")
+        const safeEntityName = String(entityName || "").replace(/'/g, "''");
+
+        const query =
+          `/api/data/v9.2/EntityDefinitions(LogicalName='${safeEntityName}')?` +
+          `$select=LogicalName,DisplayName,DisplayCollectionName,EntitySetName,` +
+          `PrimaryIdAttribute,PrimaryNameAttribute,IsCustomizable,IsValidForAdvancedFind` +
+          `&$expand=Attributes(` +
+          `$select=LogicalName,DisplayName,AttributeType,IsPrimaryId,IsPrimaryName,RequiredLevel,AttributeOf` +
+          // If you need OptionSets, add:
+          // `,OptionSet`  (some orgs need specific expand/shape; see note below)
+          `)`;
+
+        const result = await new Promise<any>((resolve, reject) => {
+          const req = new XMLHttpRequest();
+          req.open("GET", clientUrl + query, true);
+          req.setRequestHeader("OData-MaxVersion", "4.0");
+          req.setRequestHeader("OData-Version", "4.0");
+          req.setRequestHeader("Accept", "application/json");
+          req.setRequestHeader(
+            "Content-Type",
+            "application/json; charset=utf-8",
+          );
+
+          req.onreadystatechange = () => {
+            if (req.readyState !== 4) return;
+            req.onreadystatechange = null;
+
+            if (req.status === 200) {
+              resolve(JSON.parse(req.responseText));
+            } else {
+              reject(
+                new Error(
+                  req.responseText || req.statusText || `HTTP ${req.status}`,
+                ),
+              );
+            }
+          };
+
+          req.send();
+        });
+
+        // Map entity info
         const entityInfo: EntityInfo = {
-          logicalName: metadata.LogicalName,
-          displayName: metadata.DisplayName || metadata.LogicalName,
-          displayCollectionName: metadata.EntitySetName,
-          entitySetName: metadata.EntitySetName,
-          primaryIdAttribute: metadata.PrimaryIdAttribute,
-          primaryNameAttribute: metadata.PrimaryNameAttribute,
-          isCustomizable: true,
-          isValidForAdvancedFind: true,
+          logicalName: String(result.LogicalName || ""),
+          displayName:
+            this.extractLocalizedLabel(result.DisplayName) ||
+            String(result.LogicalName || ""),
+          displayCollectionName:
+            this.extractLocalizedLabel(result.DisplayCollectionName) ||
+            this.extractLocalizedLabel(result.DisplayName) ||
+            String(result.EntitySetName || ""),
+          entitySetName: String(result.EntitySetName || ""),
+          primaryIdAttribute: String(result.PrimaryIdAttribute || ""),
+          primaryNameAttribute: String(result.PrimaryNameAttribute || ""),
+          isCustomizable: Boolean(
+            result.IsCustomizable?.Value ?? result.IsCustomizable,
+          ),
+          isValidForAdvancedFind: Boolean(result.IsValidForAdvancedFind),
         };
 
-        // Convert attributes to field info
-        const fields: FieldInfo[] = (metadata.Attributes || []).map((attr: AttributeMetadata) => ({
-          logicalName: attr.LogicalName,
-          displayName: attr.DisplayName || attr.LogicalName,
-          type: this.mapAttributeType(attr.AttributeType),
-          isPrimaryId: attr.IsPrimaryId,
-          isPrimaryName: attr.IsPrimaryName,
-          isRequired: attr.RequiredLevel === 'ApplicationRequired' || attr.RequiredLevel === 'SystemRequired',
-          lookupTarget: attr.Targets?.[0],
-          optionSetOptions: attr.OptionSet?.map(opt => ({
-            value: opt.Value,
-            label: opt.Label,
-          })),
-        }));
+        const attrs: any[] = result.Attributes || [];
+
+        // Map fields
+        const fields: FieldInfo[] = attrs
+          // (optional) filter out "AttributeOf" (these are often partylist/virtual backing etc.)
+          .filter((a) => !a.AttributeOf)
+          .map((attr: any) => ({
+            logicalName: String(attr.LogicalName || ""),
+            displayName:
+              this.extractLocalizedLabel(attr.DisplayName) ||
+              String(attr.LogicalName || ""),
+            type: this.mapAttributeType(attr.AttributeType),
+            isPrimaryId: Boolean(attr.IsPrimaryId),
+            isPrimaryName: Boolean(attr.IsPrimaryName),
+            isRequired:
+              attr.RequiredLevel === "ApplicationRequired" ||
+              attr.RequiredLevel === "SystemRequired",
+            lookupTarget: Array.isArray(attr.Targets)
+              ? attr.Targets[0]
+              : undefined,
+
+            // NOTE: OptionSet shape differs based on API response.
+            // Keep this safe and defensive:
+            optionSetOptions: this.mapOptionSetOptions(attr),
+          }));
 
         // Sort fields by display name
-        fields.sort((a, b) => a.displayName.localeCompare(b.displayName));
+        fields.sort((a, b) =>
+          (a.displayName || "").localeCompare(b.displayName || ""),
+        );
 
         return { entity: entityInfo, fields };
-      }
+      },
     );
+  }
+
+  /**
+   * Defensive OptionSet mapper for Metadata Web API responses
+   */
+  private mapOptionSetOptions(
+    attr: any,
+  ): { value: number; label: string }[] | undefined {
+    const os = attr?.OptionSet;
+    const options = os?.Options;
+
+    if (!Array.isArray(options)) return undefined;
+
+    return options.map((o: any) => ({
+      value: Number(o.Value),
+      label: this.extractLocalizedLabel(o.Label) || String(o.Value),
+    }));
   }
 
   /**
    * Get fields for a specific entity (simpler version)
    */
-  async getEntityFields(entityName: string): Promise<DataverseResult<FieldInfo[]>> {
+  async getEntityFields(
+    entityName: string,
+  ): Promise<DataverseResult<FieldInfo[]>> {
     const result = await this.getEntityWithFields(entityName);
     if (!result.success) {
       return this.failure(result.error);
@@ -180,41 +305,41 @@ export class MetadataService extends BaseDataverseService {
    */
   async getLookupTargetFields(
     entityName: string,
-    lookupFieldName: string
-  ): Promise<DataverseResult<{ targetEntity: string; fields: FieldInfo[] } | null>> {
-    return this.execute(
-      'metadata',
-      entityName,
-      async () => {
-        // First get the source entity to find lookup target
-        const metadata = await this.utility.getEntityMetadata(entityName);
-        const lookupAttr = metadata.Attributes?.find(
-          (a: AttributeMetadata) => a.LogicalName === lookupFieldName
-        );
+    lookupFieldName: string,
+  ): Promise<
+    DataverseResult<{ targetEntity: string; fields: FieldInfo[] } | null>
+  > {
+    return this.execute("metadata", entityName, async () => {
+      // First get the source entity to find lookup target
+      const metadata = await this.utility.getEntityMetadata(entityName);
+      const lookupAttr = metadata.Attributes?.find(
+        (a: AttributeMetadata) => a.LogicalName === lookupFieldName,
+      );
 
-        if (!lookupAttr?.Targets?.[0]) {
-          return null;
-        }
+      if (!lookupAttr?.Targets?.[0]) {
+        return null;
+      }
 
-        const targetEntity = lookupAttr.Targets[0];
+      const targetEntity = lookupAttr.Targets[0];
 
-        // Get target entity fields
-        const targetMetadata = await this.utility.getEntityMetadata(targetEntity);
-        const fields: FieldInfo[] = (targetMetadata.Attributes || []).map((attr: AttributeMetadata) => ({
+      // Get target entity fields
+      const targetMetadata = await this.utility.getEntityMetadata(targetEntity);
+      const fields: FieldInfo[] = (targetMetadata.Attributes || []).map(
+        (attr: AttributeMetadata) => ({
           logicalName: attr.LogicalName,
           displayName: attr.DisplayName || attr.LogicalName,
           type: this.mapAttributeType(attr.AttributeType),
           isPrimaryId: attr.IsPrimaryId,
           isPrimaryName: attr.IsPrimaryName,
-          isRequired: attr.RequiredLevel === 'ApplicationRequired',
+          isRequired: attr.RequiredLevel === "ApplicationRequired",
           lookupTarget: attr.Targets?.[0],
-        }));
+        }),
+      );
 
-        fields.sort((a, b) => a.displayName.localeCompare(b.displayName));
+      fields.sort((a, b) => a.displayName.localeCompare(b.displayName));
 
-        return { targetEntity, fields };
-      }
-    );
+      return { targetEntity, fields };
+    });
   }
 
   // ============================================================================
@@ -225,19 +350,19 @@ export class MetadataService extends BaseDataverseService {
    * Extract localized label from Dataverse label structure
    */
   private extractLocalizedLabel(labelObj: unknown): string {
-    if (!labelObj) return '';
-    if (typeof labelObj === 'string') return labelObj;
+    if (!labelObj) return "";
+    if (typeof labelObj === "string") return labelObj;
 
     // Dataverse returns { LocalizedLabels: [{ Label, LanguageCode }], UserLocalizedLabel: { Label } }
     const obj = labelObj as Record<string, unknown>;
-    if (obj.UserLocalizedLabel && typeof obj.UserLocalizedLabel === 'object') {
+    if (obj.UserLocalizedLabel && typeof obj.UserLocalizedLabel === "object") {
       const userLabel = obj.UserLocalizedLabel as Record<string, unknown>;
       if (userLabel.Label) return String(userLabel.Label);
     }
     if (Array.isArray(obj.LocalizedLabels) && obj.LocalizedLabels.length > 0) {
-      return String(obj.LocalizedLabels[0].Label || '');
+      return String(obj.LocalizedLabels[0].Label || "");
     }
-    return '';
+    return "";
   }
 
   /**
@@ -245,25 +370,25 @@ export class MetadataService extends BaseDataverseService {
    */
   private mapAttributeType(attrType: string): string {
     const typeMap: Record<string, string> = {
-      'String': 'string',
-      'Memo': 'string',
-      'Integer': 'number',
-      'BigInt': 'number',
-      'Double': 'decimal',
-      'Decimal': 'decimal',
-      'Money': 'currency',
-      'Boolean': 'boolean',
-      'DateTime': 'datetime',
-      'Lookup': 'lookup',
-      'Customer': 'lookup',
-      'Owner': 'lookup',
-      'Picklist': 'optionset',
-      'State': 'optionset',
-      'Status': 'optionset',
-      'MultiSelectPicklist': 'multiselect',
-      'Uniqueidentifier': 'guid',
+      String: "string",
+      Memo: "string",
+      Integer: "number",
+      BigInt: "number",
+      Double: "decimal",
+      Decimal: "decimal",
+      Money: "currency",
+      Boolean: "boolean",
+      DateTime: "datetime",
+      Lookup: "lookup",
+      Customer: "lookup",
+      Owner: "lookup",
+      Picklist: "optionset",
+      State: "optionset",
+      Status: "optionset",
+      MultiSelectPicklist: "multiselect",
+      Uniqueidentifier: "guid",
     };
-    return typeMap[attrType] || 'string';
+    return typeMap[attrType] || "string";
   }
 
   /**
@@ -272,7 +397,7 @@ export class MetadataService extends BaseDataverseService {
   clearEntitiesCache(): void {
     this._entitiesCache = null;
     this._entitiesCacheTime = 0;
-    this._logger.debug('Entities cache cleared');
+    this._logger.debug("Entities cache cleared");
   }
 }
 
@@ -282,7 +407,7 @@ export class MetadataService extends BaseDataverseService {
 
 export function createMetadataService(
   context: IPCFContext | unknown,
-  config?: BaseServiceConfig
+  config?: BaseServiceConfig,
 ): MetadataService {
   return new MetadataService(context, config);
 }

@@ -20,6 +20,7 @@
     "@tiptap/pm": "^3.17.1",
     "@tiptap/react": "^3.17.1",
     "@tiptap/starter-kit": "^3.17.1",
+    "@types/xrm": "^9.0.88",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "react-hook-form": "^7.71.1",
